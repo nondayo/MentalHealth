@@ -1,0 +1,212 @@
+---
+title: "Mental Health Disorder Analysis Final Report Draft"
+author: "MGT 6203 Team 5"
+date: "04/08/2022"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(ggplot2)
+
+dat <- read.csv("eval/DataForModeling7Variables.csv", stringsAsFactors = T) 
+
+Chi_func <- function(v1, v2){
+  tb <- table(v1, v2)
+  chi <- chisq.test(tb, correct = F)
+  chi$p.value
+}
+```
+
+# Data 
+
+## Data preprocessing
+
+- Pick out the in common questions from three years' questionnaires.
+- Adjust levels in the categorical variables.
+- Extract columns in common and merge three data sets into one.
+- Modify the levels of logical columns, change "0", "1" into "No" and "Yes".
+- Modify various expression in gender column.
+- Reserve the levels of top 3 countries in CountryLiveIn and CountryWorkIn columns and combine the rest into "others".
+- Remove unreasonable age.
+
+## Cleaned data
+
+After data manipulation, the data distribution are showed below.
+
+![Data distribution](img/dataDistribution.png)
+
+## Relationships between independent variable and dependent variable
+
+The dependent variable is categorical variable, and the independent variables are both numerical and categorical variables.
+
+We will use spine plot to illustrate the constitution of each category between two categorical variables. On the other hand, we will use box plot to display the distribution between one numerical variable and one categorical variable.
+
+1. EmploymentType vs. CurrentlyMentalHealthDisorder    
+
+```{r, echo = F}
+spineplot(factor(dat$EmploymentType)~factor(dat$CurrentlyMentalHealthDisorder), 
+          xlab = "CurrentlyMentalHealthDisorder", ylab = "EmploymentType",
+          col = palette("Tableau"))
+```
+
+2. JobScope vs. CurrentlyMentalHealthDisorder
+
+```{r, echo = F}
+spineplot(factor(dat$JobScope)~factor(dat$CurrentlyMentalHealthDisorder), 
+          xlab = "CurrentlyMentalHealthDisorder", ylab = "JobScope",
+          col = palette("Tableau"))
+```
+
+3. FamilyHistory vs. CurrentlyMentalHealthDisorder
+
+```{r, echo = F}
+spineplot(factor(dat$FamilyHistory)~factor(dat$CurrentlyMentalHealthDisorder), 
+          xlab = "CurrentlyMentalHealthDisorder", ylab = "FamilyHistory",
+          col = palette("Tableau"))
+```
+
+4. Gender vs. CurrentlyMentalHealthDisorder
+
+```{r, echo = F}
+spineplot(factor(dat$Gender)~factor(dat$CurrentlyMentalHealthDisorder), 
+          xlab = "CurrentlyMentalHealthDisorder", ylab = "Gender",
+          col = palette("Tableau"))
+```
+
+5. CountryLiveIn vs. CurrentlyMentalHealthDisorder
+
+```{r, echo = F}
+spineplot(factor(dat$CountryLiveIn)~factor(dat$CurrentlyMentalHealthDisorder), 
+          xlab = "CurrentlyMentalHealthDisorder", ylab = "CountryLiveIn",
+          col = palette("Tableau"))
+```
+
+6. CountryWorkIn vs. CurrentlyMentalHealthDisorder
+
+```{r, echo = F}
+spineplot(factor(dat$CountryWorkIn)~factor(dat$CurrentlyMentalHealthDisorder), 
+          xlab = "CurrentlyMentalHealthDisorder", ylab = "CountryWorkIn",
+          col = palette("Tableau"))
+```
+
+7. Age vs. CurrentlyMentalHealthDisorder
+
+```{r, echo = F}
+ggplot(dat, aes(x = CurrentlyMentalHealthDisorder, y = Age)) +
+  geom_boxplot(size = .75) +
+  geom_jitter(alpha = .5) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1))
+```
+
+
+# Approach and Methodology
+
+## Question 1: What are the factors that might explain cases of mental health disorders at the workplace?
+
+### Trail 1: Random forest model
+
+We build a random forest model to predict ‘Do you currently have a mental health disorder’. The confusion matrix we have is as listed below.
+
+```{r,include=FALSE}
+library(dplyr)
+library(randomForest)
+```
+
+```{r}
+library(randomForest)
+dat <- read.csv("eval/DataForModeling7Variables.csv", stringsAsFactors = T) 
+
+set.seed(5566)
+ind <- sample(2, nrow(dat), replace = TRUE, prob = c(0.7, 0.3))
+train <- dat[ind==1,]
+test <- dat[ind==2,]
+rf <- randomForest(CurrentlyMentalHealthDisorder ~ ., data=train, na.action = na.omit) 
+print(rf)
+```
+The classifier does not perform well in predicting "Don’t know" and "Possibly" categories.
+
+The feature importance of the model is listed below.
+
+```{r}
+varImpPlot(rf, sort = TRUE)
+```
+
+
+### Trail 2: Ordinal logistic regression
+We use ordinal logistic regression to construct a model which we can interpret the cumulative probability of CurrentlyMentalHealthDisorder less than or equal to a specific category.
+
+```{r}
+library(MASS)
+dat <- read.csv("eval/DataForModeling7Variables.csv", stringsAsFactors = T) 
+## fit ordered logit model and store results 'm'
+# Reference
+# https://stats.oarc.ucla.edu/r/dae/ordinal-logistic-regression/
+m <- polr(CurrentlyMentalHealthDisorder ~ ., data = dat, Hess=TRUE)
+## view a summary of the model
+summary(m)
+```
+
+
+
+
+### Question 2: Is family history a significant factor in determining one’s likelihood of developing mental health disorders?
+
+```{r}
+library(dplyr)
+dat <- read.csv("eval/DataForModeling8Variables.csv", stringsAsFactors = T)
+tb <- table(dat$CurrentlyMentalHealthDisorder,
+            dat$FamilyHistory)
+chi <- chisq.test(tb, correct = F)
+chi$p.value
+```
+
+We run the chi-squared test and the resulting p-value here can be seen as a measure of the correlation between these two variables. Since the p-value < 0.05, we can reject the null hypothesis.
+In other words, the relationship between family history of mental illness and having a mental health disorder is statistically significant.
+
+### Question 3: How has the pandemic changed the prevalence of mental health disorders?
+
+```{r}
+dat <- read.csv("eval/DataForModeling8Variables.csv", stringsAsFactors = T) 
+dat$Pandemic <- ifelse(dat$year < 2020, "Before", "After")
+tb <- table(dat$CurrentlyMentalHealthDisorder, 
+            dat$Pandemic)
+chi <- chisq.test(tb, correct = F)
+chi$p.value
+```
+
+We run the chi-squared test and the resulting p-value here can be seen as a measure of the correlation between these two variables. Since the p-value < 0.05, we can reject the null hypothesis. In other words, the prevalence of mental health disorders is related to the pandemic.
+
+### Question 4: How have the attitudes towards mental health been before or after the pandemic?
+
+There are two features are associated with this research question:
+
+1. Would you feel comfortable discussing a mental health issue with your direct supervisor?
+
+```{r}
+dat <- read.csv("eval/MentalHealth_2019to2021_required.csv", stringsAsFactors = T)
+dat$DiscussWithSupervisor <- dat$`Would.you.feel.comfortable.discussing.a.mental.health.issue.with.your.direct.supervisor.s..`
+dat$Pandemic <- ifelse(dat$year < 2020, "Before", "After")
+tb <- table(dat$DiscussWithSupervisor, 
+            dat$Pandemic)
+chi <- chisq.test(tb, correct = F)
+chi$p.value
+```
+
+2. Would you feel comfortable discussing a mental health issue with your coworkers?
+
+```{r}
+dat <- read.csv("eval/MentalHealth_2019to2021_required.csv", stringsAsFactors = T)
+dat$DiscussWithCoworkers <- dat$`Would.you.feel.comfortable.discussing.a.mental.health.issue.with.your.coworkers.`
+dat$Pandemic <- ifelse(dat$year < 2020, "Before", "After")
+tb <- table(dat$DiscussWithCoworkers,
+            dat$Pandemic)
+chi <- chisq.test(tb, correct = F)
+chi$p.value
+```
+
+We found that they have opposite results. The level of comfortableness discussing a mental health issue with the staff’s direct supervisor is different after the pandemic. On the contrary, there is no statistical difference in discussions with the staff’s coworkers.
+

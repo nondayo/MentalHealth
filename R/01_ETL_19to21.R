@@ -85,3 +85,85 @@ write.csv(dat, file = "eval/MentalHealth_2019to2021.csv", row.names = F)
 
 dat_required <- dat[, c(1:18, 42, 44:53, 60:67)]
 write.csv(dat_required, file = "eval/MentalHealth_2019to2021_required.csv", row.names = F)
+
+# Data For Modeling (7 Variables)
+# Select columns Manually
+dat <- read.csv("eval/MentalHealth_2019to2021.csv")
+CurrentlyMentalHealthDisorder <- dat$`Do.you..currently..have.a.mental.health.disorder.`
+ColsManually <- read.csv("eval/columnsToModeling.csv")
+cols <- ColsManually$column_name[!ColsManually$Factor == ""] %>% 
+  as.character()
+dat <- dat[, cols] 
+names(dat) <- ColsManually$Factor[!ColsManually$Factor == ""] %>% 
+  as.character()
+dat$CurrentlyMentalHealthDisorder <- CurrentlyMentalHealthDisorder
+
+# Deal with gender
+dat$Gender <- tolower(dat$Gender)
+dat$Gender[grepl(dat$Gender, pattern = "male")] <- "male"
+dat$Gender[grepl(dat$Gender, pattern = "woman")] <- "female"
+dat$Gender[grepl(dat$Gender, pattern = "man")] <- "female"
+dat$Gender[dat$Gender == "m"] <- "male"
+dat$Gender[dat$Gender == "f"] <- "female"
+dat$Gender[!(dat$Gender == "male" | dat$Gender == "female")] <- "other"
+# check
+# table(dat$Gender)
+
+# Deal with CountryLiveIn
+dat$CountryLiveIn <- dat$CountryLiveIn %>% as.character()
+dat$CountryLiveIn[!(dat$CountryLiveIn == "United States of America" | 
+                      dat$CountryLiveIn == "India" | 
+                      dat$CountryLiveIn == "United Kingdom")] <- "other"
+# Deal with CountryWorkIn
+dat$CountryWorkIn <- dat$CountryWorkIn %>% as.character()
+dat$CountryWorkIn[!(dat$CountryWorkIn == "United States of America" | 
+                      dat$CountryWorkIn == "India" | 
+                      dat$CountryWorkIn == "United Kingdom")] <- "other"
+# Remove weird Age
+dat <- dat %>% 
+  filter(Age < 100 | Age > 18)
+write.csv(dat, file = "eval/DataForModeling7Variables.csv", row.names = F)
+dat <- read.csv("eval/DataForModeling7Variables.csv")
+dat$CurrentlyMentalHealthDisorder <- ifelse(dat$CurrentlyMentalHealthDisorder == "Yes", "Yes", "Other")
+write.csv(dat, file = "eval/DataForModeling7Variables2levels.csv", row.names = F)
+
+
+
+# Data For Modeling (8 Variables)
+# Select columns Manually
+dat <- read.csv("eval/MentalHealth_2019to2021.csv")
+CurrentlyMentalHealthDisorder <- dat$`Do.you..currently..have.a.mental.health.disorder.`
+ColsManually <- read.csv("eval/columnsToModeling.csv")
+cols <- ColsManually$column_name[!ColsManually$Factor == ""] %>% 
+  as.character()
+dat <- dat[, c(cols, "year")] 
+names(dat) <- c(ColsManually$Factor[!ColsManually$Factor == ""] %>% 
+                  as.character(), "year")
+dat$CurrentlyMentalHealthDisorder <- CurrentlyMentalHealthDisorder
+
+# Deal with gender
+dat$Gender <- tolower(dat$Gender)
+dat$Gender[grepl(dat$Gender, pattern = "male")] <- "male"
+dat$Gender[grepl(dat$Gender, pattern = "woman")] <- "female"
+dat$Gender[grepl(dat$Gender, pattern = "man")] <- "female"
+dat$Gender[dat$Gender == "m"] <- "male"
+dat$Gender[dat$Gender == "f"] <- "female"
+dat$Gender[!(dat$Gender == "male" | dat$Gender == "female")] <- "other"
+# check
+# table(dat$Gender)
+
+# Deal with CountryLiveIn
+dat$CountryLiveIn <- dat$CountryLiveIn %>% as.character()
+dat$CountryLiveIn[!(dat$CountryLiveIn == "United States of America" | 
+                      dat$CountryLiveIn == "India" | 
+                      dat$CountryLiveIn == "United Kingdom")] <- "other"
+# Deal with CountryWorkIn
+dat$CountryWorkIn <- dat$CountryWorkIn %>% as.character()
+dat$CountryWorkIn[!(dat$CountryWorkIn == "United States of America" | 
+                      dat$CountryWorkIn == "India" | 
+                      dat$CountryWorkIn == "United Kingdom")] <- "other"
+# Remove weird Age
+dat <- dat %>% 
+  filter(Age < 100 | Age > 18)
+write.csv(dat, file = "eval/DataForModeling8Variables.csv", row.names = F)
+
