@@ -122,9 +122,19 @@ dat$CountryWorkIn[!(dat$CountryWorkIn == "United States of America" |
 # Remove weird Age
 dat <- dat %>% 
   filter(Age < 100 | Age > 18)
+
 write.csv(dat, file = "eval/DataForModeling7Variables.csv", row.names = F)
 dat <- read.csv("eval/DataForModeling7Variables.csv")
 dat$CurrentlyMentalHealthDisorder <- ifelse(dat$CurrentlyMentalHealthDisorder == "Yes", "Yes", "Other")
+dat$JobScope[is.na(dat$JobScope)] <- "Unknown"
+dat$Gender[is.na(dat$Gender)] <- "Unknown"
+dat$CountryLiveIn[is.na(dat$CountryLiveIn)] <- "Unknown"
+dat$CountryWorkIn[is.na(dat$CountryWorkIn)] <- "Unknown"
+for(i in names(dat)){
+  if(is.character(dat[[i]])){
+    dat[[i]] <- as.factor(dat[[i]])
+  }
+}
 write.csv(dat, file = "eval/DataForModeling7Variables2levels.csv", row.names = F)
 
 
@@ -166,4 +176,8 @@ dat$CountryWorkIn[!(dat$CountryWorkIn == "United States of America" |
 dat <- dat %>% 
   filter(Age < 100 | Age > 18)
 write.csv(dat, file = "eval/DataForModeling8Variables.csv", row.names = F)
+dat <- read.csv("eval/DataForModeling8Variables.csv")
+dat$CurrentlyMentalHealthDisorder <- ifelse(dat$CurrentlyMentalHealthDisorder == "Yes", "Yes", "Other")
+write.csv(dat, file = "eval/DataForModeling8Variables2levels.csv", row.names = F)
+
 

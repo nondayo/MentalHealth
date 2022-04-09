@@ -8,11 +8,12 @@ output:
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
 library(dplyr)
 library(ggplot2)
+library(randomForest)
 
-dat <- read.csv("eval/DataForModeling7Variables.csv", stringsAsFactors = T) 
+dat <- read.csv("eval/DataForModeling7Variables2levels.csv", stringsAsFactors = T) 
 
 Chi_func <- function(v1, v2){
   tb <- table(v1, v2)
@@ -32,6 +33,7 @@ Chi_func <- function(v1, v2){
 - Modify various expression in gender column.
 - Reserve the levels of top 3 countries in CountryLiveIn and CountryWorkIn columns and combine the rest into "others".
 - Remove unreasonable age.
+- Replace missing value with "unknown".
 
 ## Cleaned data
 
@@ -111,23 +113,16 @@ ggplot(dat, aes(x = CurrentlyMentalHealthDisorder, y = Age)) +
 
 We build a random forest model to predict ‘Do you currently have a mental health disorder’. The confusion matrix we have is as listed below.
 
-```{r,include=FALSE}
-library(dplyr)
-library(randomForest)
-```
-
 ```{r}
-library(randomForest)
-dat <- read.csv("eval/DataForModeling7Variables.csv", stringsAsFactors = T) 
+dat <- read.csv("eval/DataForModeling7Variables2levels.csv", stringsAsFactors = T) 
+rf <- randomForest(CurrentlyMentalHealthDisorder ~ ., 
+                   data=dat,
+                   na.action = na.omit) 
 
-set.seed(5566)
-ind <- sample(2, nrow(dat), replace = TRUE, prob = c(0.7, 0.3))
-train <- dat[ind==1,]
-test <- dat[ind==2,]
-rf <- randomForest(CurrentlyMentalHealthDisorder ~ ., data=train, na.action = na.omit) 
-print(rf)
+caret::confusionMatrix(predict(rf, newdata = dat),
+                       dat$CurrentlyMentalHealthDisorder)
+
 ```
-The classifier does not perform well in predicting "Don’t know" and "Possibly" categories.
 
 The feature importance of the model is listed below.
 
@@ -136,22 +131,20 @@ varImpPlot(rf, sort = TRUE)
 ```
 
 
-### Trail 2: Ordinal logistic regression
-We use ordinal logistic regression to construct a model which we can interpret the cumulative probability of CurrentlyMentalHealthDisorder less than or equal to a specific category.
-
+### Trail 2: Logistic regression
 ```{r}
-library(MASS)
-dat <- read.csv("eval/DataForModeling7Variables.csv", stringsAsFactors = T) 
-## fit ordered logit model and store results 'm'
-# Reference
-# https://stats.oarc.ucla.edu/r/dae/ordinal-logistic-regression/
-m <- polr(CurrentlyMentalHealthDisorder ~ ., data = dat, Hess=TRUE)
+dat <- read.csv("eval/DataForModeling7Variables2levels.csv", stringsAsFactors = F) 
+## fit logistic model and store results 'logistic_model'
+logistic_model <- glm(as.factor(CurrentlyMentalHealthDisorder) ~ ., 
+                      data = dat, family = "binomial")
 ## view a summary of the model
-summary(m)
+summary(logistic_model)
 ```
 
-
-
+```{r}
+# Confusion matrix
+caret::confusionMatrix(as.factor(ifelse(logistic_model$fitted.values >= 0.5, "Yes", "Other")), as.factor(dat$CurrentlyMentalHealthDisorder))
+```
 
 ### Question 2: Is family history a significant factor in determining one’s likelihood of developing mental health disorders?
 
