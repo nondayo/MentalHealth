@@ -1,4 +1,4 @@
-dat <- read.csv("eval/DataForModeling7Variables2levels.csv", stringsAsFactors = T) 
+dat <- read.csv("eval/DataForModeling8Variables.csv", stringsAsFactors = T) 
 dim(dat)
 library(randomForest)
 
@@ -11,7 +11,7 @@ print(rf)
 # importance(rf)
 
 # number of variables at each split
-rf1.tune <- tuneRF(dat[, -8], dat[, 8], doBest=T) 
+rf1.tune <- tuneRF(dat[, -which(names(dat) == "CurrentlyMentalHealthDisorder")], dat$CurrentlyMentalHealthDisorder, doBest=T) 
 plot(rf1.tune)
 rf1.tune
 
@@ -25,9 +25,6 @@ oob.err.data1 <- data.frame(
 library(ggplot2)
 ggplot(data = oob.err.data1, aes(x = Trees, y= Error)) + 
   geom_line(aes(color = Type))
-
-
-
 
 rf2 <- randomForest(CurrentlyMentalHealthDisorder ~ ., 
                    data=dat,

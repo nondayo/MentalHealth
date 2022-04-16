@@ -3,7 +3,7 @@ This is the repository of OMSA MGT6203 team project: Mental Health Disorder Anal
 
 # Prerequisite
 - Install R    
-- Install R packages: dplyr, randomForest    
+- Install R packages: dplyr, randomForest, ggplot2, ggmosaic    
 
 # Structure of the repo
 - data: the raw data used in this project
@@ -12,5 +12,4 @@ This is the repository of OMSA MGT6203 team project: Mental Health Disorder Anal
 - R: R codes
 
 # Note
-- The images of source code are made using [carbon](https://carbon.now.sh/).    
 - Statistical charts are made using [Exploratory Public](https://exploratory.io/public).

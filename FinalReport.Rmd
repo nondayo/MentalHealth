@@ -14,8 +14,9 @@ library(ggplot2)
 library(randomForest)
 library(ggmosaic)
 
-dat <- read.csv("eval/DataForModeling7Variables2levels.csv", stringsAsFactors = T) 
+dat <- read.csv("eval/DataForModeling8Variables.csv", stringsAsFactors = T) 
 dat$CurrentlyMentalHealthDisorder <- factor(dat$CurrentlyMentalHealthDisorder, levels = c("Yes", "Other"), labels = c("Yes", "Other"))
+dat_year <- read.csv("eval/DataForModeling9Variables.csv", stringsAsFactors = T) 
 
 Chi_func <- function(v1, v2){
   tb <- table(v1, v2)
@@ -28,14 +29,89 @@ Chi_func <- function(v1, v2){
 
 ## Data preprocessing
 
-- Pick out the in common questions from three years' questionnaires.
-- Adjust levels in the categorical variables.
+- Pick out factors may related to the cases of mental health disorders at the workplace.
 - Extract columns in common and merge three data sets into one.
 - Modify the levels of logical columns, change "0", "1" into "No" and "Yes".
 - Modify various expression in gender column.
-- Reserve the levels of top 3 countries in CountryLiveIn and CountryWorkIn columns and combine the rest into "others".
+- Reserve the levels of the top 3 countries in CountryLiveIn and CountryWorkIn columns and combine the rest into "others".
 - Remove unreasonable age.
 - Replace missing value with "unknown".
+
+```{r}
+dat2019 <- read.csv("data/OSMI 2019 Mental Health in Tech Survey Results - OSMI Mental Health in Tech Survey 2019.csv", stringsAsFactors = T)
+dat2020 <- read.csv("data/OSMI 2020 Mental Health in Tech Survey Results .csv", stringsAsFactors = T)
+dat2021 <- read.csv("data/OSMI 2021 Mental Health in Tech Survey Results .csv", stringsAsFactors = T)
+
+# Data For Modeling (7 Variables)
+# Select columns Manually
+selected_columns <- c("Do.you..currently..have.a.mental.health.disorder.",
+                      "X.Are.you.self.employed..",
+                      "Is.your.primary.role.within.your.company.related.to.tech.IT.",
+                      "Do.you.have.a.family.history.of.mental.illness.",
+                      "What.is.your.age.",
+                      "What.is.your.gender.",
+                      "What.country.do.you..live..in.",
+                      "What.country.do.you..work..in.")
+dat2019 <- dat2019 %>% select(selected_columns) %>% mutate(year = "2019")
+dat2020 <- dat2020 %>% select(selected_columns) %>% mutate(year = "2020")
+dat2021 <- dat2021 %>% select(selected_columns) %>% mutate(year = "2021")
+
+dat <- rbind(dat2019, dat2020) %>% 
+  rbind(dat2021)
+names(dat) <- c("CurrentlyMentalHealthDisorder",
+                "EmploymentType", 
+                "JobScope",
+                "FamilyHistory",
+                "Age",
+                "Gender",
+                "CountryLiveIn",
+                "CountryWorkIn",
+                "year")
+
+# Deal with gender
+dat$Gender <- tolower(dat$Gender)
+dat$Gender[grepl(dat$Gender, pattern = "male")] <- "male"
+dat$Gender[grepl(dat$Gender, pattern = "woman")] <- "female"
+dat$Gender[grepl(dat$Gender, pattern = "man")] <- "female"
+dat$Gender[dat$Gender == "m"] <- "male"
+dat$Gender[dat$Gender == "f"] <- "female"
+dat$Gender[!(dat$Gender == "male" | dat$Gender == "female")] <- "other"
+# check
+# table(dat$Gender)
+
+# Deal with CountryLiveIn
+dat$CountryLiveIn <- dat$CountryLiveIn %>% as.character()
+dat$CountryLiveIn[!(dat$CountryLiveIn == "United States of America" | 
+                      dat$CountryLiveIn == "India" | 
+                      dat$CountryLiveIn == "United Kingdom")] <- "other"
+# Deal with CountryWorkIn
+dat$CountryWorkIn <- dat$CountryWorkIn %>% as.character()
+dat$CountryWorkIn[!(dat$CountryWorkIn == "United States of America" | 
+                      dat$CountryWorkIn == "India" | 
+                      dat$CountryWorkIn == "United Kingdom")] <- "other"
+# Remove weird Age
+dat <- dat %>% 
+  filter(Age < 100) %>% 
+  filter(Age > 18)
+
+# Merge the 4 possible outcomes into 2 outcomes
+dat$CurrentlyMentalHealthDisorder <- ifelse(dat$CurrentlyMentalHealthDisorder == "Yes", "Yes", "Other")
+
+# Deal with missing value
+dat$JobScope[is.na(dat$JobScope)] <- "Unknown"
+dat$Gender[is.na(dat$Gender)] <- "Unknown"
+dat$CountryLiveIn[is.na(dat$CountryLiveIn)] <- "Unknown"
+dat$CountryWorkIn[is.na(dat$CountryWorkIn)] <- "Unknown"
+for(i in names(dat)){
+  if(is.character(dat[[i]])){
+    dat[[i]] <- as.factor(dat[[i]])
+  }
+}
+write.csv(dat, file = "eval/DataForModeling9Variables.csv", row.names = F)
+dat <- dat %>% select(-year)
+write.csv(dat, file = "eval/DataForModeling8Variables.csv", row.names = F)
+```
+
 
 ## Cleaned data
 
@@ -121,8 +197,6 @@ ggplot(dat, aes(x = CurrentlyMentalHealthDisorder, y = Age)) +
 
 ## Question 1: What are the factors that might explain cases of mental health disorders at the workplace?
 
-### Trail 1: Random forest model
-
 We build a random forest model to predict ‘Do you currently have a mental health disorder’. The confusion matrix we have is as listed below.
 
 ```{r}
@@ -140,7 +214,7 @@ As you can see, the lowest OOB Error is achieved when the mtry is 2.
 
 ```{r}
 # number of variables at each split
-rf1.tune <- tuneRF(dat[, -8], dat[, 8], doBest=T) 
+rf1.tune <- tuneRF(dat[, -which(names(dat) == "CurrentlyMentalHealthDisorder")], dat$CurrentlyMentalHealthDisorder, doBest=T) 
 ```
 
 Then we search for the number of trees grown(ntree).
@@ -177,61 +251,67 @@ The feature importance of the model is listed below.
 varImpPlot(rf3, sort = TRUE)
 ```
 
+To determine whether these factors are significant factors in determining one’s likelihood of developing mental health disorders, we have decided to run the chi-squared test and t-test. The resulting p-value here can be seen as a measure of the correlation between these two variables. The result shown below tells us that Family history, Country that one works in, and Country that one lives in are significant factors.
 
-### Trail 2: Logistic regression
 ```{r}
-dat <- read.csv("eval/DataForModeling7Variables2levels.csv", stringsAsFactors = F) 
-## fit logistic model and store results 'logistic_model'
-logistic_model <- glm(as.factor(CurrentlyMentalHealthDisorder) ~ ., 
-                      data = dat, family = "binomial")
-## view a summary of the model
-summary(logistic_model)
+Chi_func <- function(v1, v2){
+  tb <- table(v1, v2)
+  chi <- chisq.test(tb, correct = F)
+  chi$p.value
+}
+
+# FamilyHistory 
+Chi_func(dat$FamilyHistory, dat$CurrentlyMentalHealthDisorder)
+
+# Age
+var.test(dat$Age ~ dat$CurrentlyMentalHealthDisorder)
+# p-value = 0.1335.
+# Since p-value > 0.05, the variance of Age in two groups are equal.
+# t.test
+t.test(dat$Age ~ dat$CurrentlyMentalHealthDisorder, var.equal = TRUE)
+
+# CountryWorkIn
+Chi_func(dat$CountryWorkIn, dat$CurrentlyMentalHealthDisorder)
+
+# CountryLiveIn 
+Chi_func(dat$CountryLiveIn, dat$CurrentlyMentalHealthDisorder)
+
+# Gender
+Chi_func(dat$Gender, dat$CurrentlyMentalHealthDisorder)
 ```
 
-```{r}
-# Confusion matrix
-caret::confusionMatrix(as.factor(ifelse(logistic_model$fitted.values >= 0.5, "Yes", "Other")), as.factor(dat$CurrentlyMentalHealthDisorder))
-```
-
-
-
-
-### Question 2: Is family history a significant factor in determining one’s likelihood of developing mental health disorders?
+### Question 2: How has the pandemic changed the prevalence of mental health disorders?
 
 ```{r}
-library(dplyr)
-dat <- read.csv("eval/DataForModeling8Variables.csv", stringsAsFactors = T)
-tb <- table(dat$CurrentlyMentalHealthDisorder,
-            dat$FamilyHistory)
-chi <- chisq.test(tb, correct = F)
-chi$p.value
-```
-
-We run the chi-squared test and the resulting p-value here can be seen as a measure of the correlation between these two variables. Since the p-value < 0.05, we can reject the null hypothesis.
-In other words, the relationship between family history of mental illness and having a mental health disorder is statistically significant.
-
-### Question 3: How has the pandemic changed the prevalence of mental health disorders?
-
-```{r}
-dat <- read.csv("eval/DataForModeling8Variables.csv", stringsAsFactors = T) 
-dat$Pandemic <- ifelse(dat$year < 2020, "Before", "After")
-tb <- table(dat$CurrentlyMentalHealthDisorder, 
-            dat$Pandemic)
+dat_year <- read.csv("eval/DataForModeling9Variables.csv", stringsAsFactors = T) 
+dat_year$Pandemic <- ifelse(dat_year$year < 2020, "Before", "After")
+tb <- table(dat_year$CurrentlyMentalHealthDisorder, 
+            dat_year$Pandemic)
 chi <- chisq.test(tb, correct = F)
 chi$p.value
 ```
 
 We run the chi-squared test and the resulting p-value here can be seen as a measure of the correlation between these two variables. Since the p-value < 0.05, we can reject the null hypothesis. In other words, the prevalence of mental health disorders is related to the pandemic.
 
-### Question 4: How have the attitudes towards mental health been before or after the pandemic?
+### Question 3: How have the attitudes towards mental health been before or after the pandemic?
 
 There are two features are associated with this research question:
 
 1. Would you feel comfortable discussing a mental health issue with your direct supervisor?
 
 ```{r}
-dat <- read.csv("eval/MentalHealth_2019to2021_required.csv", stringsAsFactors = T)
-dat$DiscussWithSupervisor <- dat$`Would.you.feel.comfortable.discussing.a.mental.health.issue.with.your.direct.supervisor.s..`
+dat2019 <- read.csv("data/OSMI 2019 Mental Health in Tech Survey Results - OSMI Mental Health in Tech Survey 2019.csv", stringsAsFactors = T) %>%
+	select(DiscussWithSupervisor = `Would.you.feel.comfortable.discussing.a.mental.health.issue.with.your.direct.supervisor.s..`) %>%
+	mutate(year = 2019)
+dat2020 <- read.csv("data/OSMI 2020 Mental Health in Tech Survey Results .csv", stringsAsFactors = T) %>%
+	select(DiscussWithSupervisor = `Would.you.feel.comfortable.discussing.a.mental.health.issue.with.your.direct.supervisor.s..`) %>%
+	mutate(year = 2020)
+dat2021 <- read.csv("data/OSMI 2021 Mental Health in Tech Survey Results .csv", stringsAsFactors = T) %>%
+	select(DiscussWithSupervisor = `Would.you.feel.comfortable.discussing.a.mental.health.issue.with.your.direct.supervisor.s..`) %>%
+	mutate(year = 2021)
+dat <- rbind(dat2019, dat2020) %>% 
+  rbind(dat2021)
+
 dat$Pandemic <- ifelse(dat$year < 2020, "Before", "After")
 tb <- table(dat$DiscussWithSupervisor, 
             dat$Pandemic)
@@ -242,8 +322,18 @@ chi$p.value
 2. Would you feel comfortable discussing a mental health issue with your coworkers?
 
 ```{r}
-dat <- read.csv("eval/MentalHealth_2019to2021_required.csv", stringsAsFactors = T)
-dat$DiscussWithCoworkers <- dat$`Would.you.feel.comfortable.discussing.a.mental.health.issue.with.your.coworkers.`
+dat2019 <- read.csv("data/OSMI 2019 Mental Health in Tech Survey Results - OSMI Mental Health in Tech Survey 2019.csv", stringsAsFactors = T) %>%
+  select(DiscussWithCoworkers = `Would.you.feel.comfortable.discussing.a.mental.health.issue.with.your.coworkers.`) %>%
+  mutate(year = 2019)
+dat2020 <- read.csv("data/OSMI 2020 Mental Health in Tech Survey Results .csv", stringsAsFactors = T) %>%
+  select(DiscussWithCoworkers = `Would.you.feel.comfortable.discussing.a.mental.health.issue.with.your.coworkers.`) %>%
+  mutate(year = 2020)
+dat2021 <- read.csv("data/OSMI 2021 Mental Health in Tech Survey Results .csv", stringsAsFactors = T) %>%
+  select(DiscussWithCoworkers = `Would.you.feel.comfortable.discussing.a.mental.health.issue.with.your.coworkers.`) %>%
+  mutate(year = 2021)
+dat <- rbind(dat2019, dat2020) %>%
+  rbind(dat2021)
+
 dat$Pandemic <- ifelse(dat$year < 2020, "Before", "After")
 tb <- table(dat$DiscussWithCoworkers,
             dat$Pandemic)
