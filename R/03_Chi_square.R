@@ -1,16 +1,46 @@
-# 02
+# 01
 library(dplyr)
 dat <- read.csv("eval/MentalHealth_2019to2021_required.csv", stringsAsFactors = T)
 # levels(dat$`Do.you..currently..have.a.mental.health.disorder.`)
 # [1] "Don't Know" "No"         "Possibly"   "Yes"  
+
+# Family history
 tb <- table(dat$`Do.you..currently..have.a.mental.health.disorder.`, 
                 dat$`Do.you.have.a.family.history.of.mental.illness.`)
 chi <- chisq.test(tb, correct = F)
 chi$p.value
-# > chi$p.value
 # [1] 5.265167e-30
 
-# 03
+# Age
+tb <- table(dat$`Do.you..currently..have.a.mental.health.disorder.`, 
+            dat$What.is.your.age.)
+chi <- chisq.test(tb, correct = F)
+chi$p.value
+# [1] 0.3400811
+
+# CountryWorkIn
+tb <- table(dat$`Do.you..currently..have.a.mental.health.disorder.`, 
+            dat$What.country.do.you..work..in.)
+chi <- chisq.test(tb, correct = F)
+chi$p.value
+# [1] 7.509087e-07
+
+# CountryLiveIn
+tb <- table(dat$`Do.you..currently..have.a.mental.health.disorder.`, 
+            dat$What.country.do.you..live..in.)
+chi <- chisq.test(tb, correct = F)
+chi$p.value
+# [1] 1.940768e-07
+
+# Gender
+tb <- table(dat$`Do.you..currently..have.a.mental.health.disorder.`, 
+            dat$What.is.your.gender.)
+chi <- chisq.test(tb, correct = F)
+chi$p.value
+# [1] 0.7395538
+
+
+# 02
 dat <- read.csv("eval/MentalHealth_2019to2021_required.csv", stringsAsFactors = T) 
 dat$disorder <- ifelse(dat$`Do.you..currently..have.a.mental.health.disorder.` == "Yes", "Yes", "No")
 dat$Pandemic <- ifelse(dat$year < 2020, "Before", "After")

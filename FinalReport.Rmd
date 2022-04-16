@@ -12,8 +12,10 @@ knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
 library(dplyr)
 library(ggplot2)
 library(randomForest)
+library(ggmosaic)
 
 dat <- read.csv("eval/DataForModeling7Variables2levels.csv", stringsAsFactors = T) 
+dat$CurrentlyMentalHealthDisorder <- factor(dat$CurrentlyMentalHealthDisorder, levels = c("Yes", "Other"), labels = c("Yes", "Other"))
 
 Chi_func <- function(v1, v2){
   tb <- table(v1, v2)
@@ -82,17 +84,27 @@ spineplot(factor(dat$Gender)~factor(dat$CurrentlyMentalHealthDisorder),
 5. CountryLiveIn vs. CurrentlyMentalHealthDisorder
 
 ```{r, echo = F}
-spineplot(factor(dat$CountryLiveIn)~factor(dat$CurrentlyMentalHealthDisorder), 
-          xlab = "CurrentlyMentalHealthDisorder", ylab = "CountryLiveIn",
-          col = palette("Tableau"))
+ggplot(data = dat) +
+  geom_mosaic(aes(x = product(CountryLiveIn, CurrentlyMentalHealthDisorder),
+                  fill = CountryLiveIn)) + 
+  labs(y = "CountryLiveIn", 
+       title="CountryLiveIn v.s. CurrentlyMentalHealthDisorder") +
+  theme(axis.text.y=element_blank(),
+        axis.ticks.y=element_blank(),
+        axis.text.x = element_text(angle = 60))
 ```
 
 6. CountryWorkIn vs. CurrentlyMentalHealthDisorder
 
 ```{r, echo = F}
-spineplot(factor(dat$CountryWorkIn)~factor(dat$CurrentlyMentalHealthDisorder), 
-          xlab = "CurrentlyMentalHealthDisorder", ylab = "CountryWorkIn",
-          col = palette("Tableau"))
+ggplot(data = dat) +
+  geom_mosaic(aes(x = product(CountryWorkIn, CurrentlyMentalHealthDisorder),
+                  fill = CountryWorkIn)) + 
+  labs(y = "CountryWorkIn", 
+       title="CountryWorkIn v.s. CurrentlyMentalHealthDisorder") +
+  theme(axis.text.y=element_blank(),
+        axis.ticks.y=element_blank(),
+        axis.text.x = element_text(angle = 60))
 ```
 
 7. Age vs. CurrentlyMentalHealthDisorder
@@ -114,20 +126,55 @@ ggplot(dat, aes(x = CurrentlyMentalHealthDisorder, y = Age)) +
 We build a random forest model to predict ‘Do you currently have a mental health disorder’. The confusion matrix we have is as listed below.
 
 ```{r}
-dat <- read.csv("eval/DataForModeling7Variables2levels.csv", stringsAsFactors = T) 
-rf <- randomForest(CurrentlyMentalHealthDisorder ~ ., 
+set.seed(5)
+rf1 <- randomForest(CurrentlyMentalHealthDisorder ~ ., 
                    data=dat,
                    na.action = na.omit) 
+print(rf1)
+```
 
-caret::confusionMatrix(predict(rf, newdata = dat),
+We apply grid search to do the hyperparameter tuning.
+First, we try to find the number of features to consider at each split point(mtry) which resulted to the lowest error.
+
+As you can see, the lowest OOB Error is achieved when the mtry is 2.
+
+```{r}
+# number of variables at each split
+rf1.tune <- tuneRF(dat[, -8], dat[, 8], doBest=T) 
+```
+
+Then we search for the number of trees grown(ntree).
+The plot below shows the result we tried ntree=2000. We can see that the OOB Error rate converges around when ntree is around 500, the default number.
+
+```{r}
+rf2 <- randomForest(CurrentlyMentalHealthDisorder ~ ., 
+                     dat, ntree = 2000)
+oob_err_data <- data.frame(
+  Trees = rep(1:nrow(rf2$err.rate), 3), 
+  Type = rep(c("OOB","Yes","Other"), each = nrow(rf2$err.rate)),
+  Error = c(rf2$err.rate[,"OOB"], rf2$err.rate[,"Yes"], rf2$err.rate[,"Other"]))
+
+ggplot(data = oob_err_data, aes(x = Trees, y= Error)) + 
+  geom_line(aes(color = Type))
+```
+
+Finally, we build our random forest model by specify the best value of the arguments.
+
+```{r}
+rf3 <-  randomForest(CurrentlyMentalHealthDisorder ~ ., 
+                     data=dat,
+                     na.action = na.omit,
+                     mtry=2,
+                     ntree=500)
+# print(rf3)
+caret::confusionMatrix(predict(rf3, newdata = dat),
                        dat$CurrentlyMentalHealthDisorder)
-
 ```
 
 The feature importance of the model is listed below.
 
 ```{r}
-varImpPlot(rf, sort = TRUE)
+varImpPlot(rf3, sort = TRUE)
 ```
 
 
@@ -145,6 +192,9 @@ summary(logistic_model)
 # Confusion matrix
 caret::confusionMatrix(as.factor(ifelse(logistic_model$fitted.values >= 0.5, "Yes", "Other")), as.factor(dat$CurrentlyMentalHealthDisorder))
 ```
+
+
+
 
 ### Question 2: Is family history a significant factor in determining one’s likelihood of developing mental health disorders?
 
