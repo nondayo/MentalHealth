@@ -9,7 +9,6 @@ This is the repository of OMSA MGT6203 team project: Mental Health Disorder Anal
 - data: the raw data used in this project
 - eval: manipulated data
 - img: images used in the report
-- R: R codes
 
 # Note
 - Statistical charts are made using [Exploratory Public](https://exploratory.io/public).
