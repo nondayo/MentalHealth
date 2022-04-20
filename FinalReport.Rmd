@@ -37,7 +37,7 @@ Chi_func <- function(v1, v2){
 - Remove unreasonable age.
 - Replace missing value with "unknown".
 
-```{r}
+```{r eval = FALSE}
 dat2019 <- read.csv("data/OSMI 2019 Mental Health in Tech Survey Results - OSMI Mental Health in Tech Survey 2019.csv", stringsAsFactors = T)
 dat2020 <- read.csv("data/OSMI 2020 Mental Health in Tech Survey Results .csv", stringsAsFactors = T)
 dat2021 <- read.csv("data/OSMI 2021 Mental Health in Tech Survey Results .csv", stringsAsFactors = T)
@@ -94,11 +94,20 @@ dat <- dat %>%
   filter(Age < 100) %>% 
   filter(Age > 18)
 
+#Group the different age groups into 5 possible age groups
+dat$AgeGroup = cut(dat$Age, c(19, 29, 39, 49, 59, Inf), c("<30", "30-39", "40-49", "50-59", ">=60"), include.lowest=TRUE)
+
 # Merge the 4 possible outcomes into 2 outcomes
 dat$CurrentlyMentalHealthDisorder <- ifelse(dat$CurrentlyMentalHealthDisorder == "Yes", "Yes", "Other")
 
+#Percentage of Yes/Others group by Employment Type
+dat <- dat %>%
+  mutate(EmploymentType = ifelse(EmploymentType == 1 & !is.na(EmploymentType), "Self-Employed","Employed"))
+
+#Rename the Job Scope into Tech, Non Tech and Unknown
+dat$JobScope = if_else(dat$JobScope == 1, true= "Tech", false="Non-Tech", missing = "Unknown")
+
 # Deal with missing value
-dat$JobScope[is.na(dat$JobScope)] <- "Unknown"
 dat$Gender[is.na(dat$Gender)] <- "Unknown"
 dat$CountryLiveIn[is.na(dat$CountryLiveIn)] <- "Unknown"
 dat$CountryWorkIn[is.na(dat$CountryWorkIn)] <- "Unknown"
@@ -110,8 +119,8 @@ for(i in names(dat)){
 write.csv(dat, file = "eval/DataForModeling9Variables.csv", row.names = F)
 dat <- dat %>% select(-year)
 write.csv(dat, file = "eval/DataForModeling8Variables.csv", row.names = F)
-```
 
+```
 
 ## Cleaned data
 
@@ -129,69 +138,91 @@ We will use spine plot to illustrate the constitution of each category between t
 
 ```{r, echo = F}
 spineplot(factor(dat$EmploymentType)~factor(dat$CurrentlyMentalHealthDisorder), 
-          xlab = "CurrentlyMentalHealthDisorder", ylab = "EmploymentType",
+          xlab = "CurrentlyMentalHealthDisorder", ylab = "Employment Type",
+          col = palette("Tableau"))
+```
+```{r}
+spineplot(factor(dat$CurrentlyMentalHealthDisorder)~factor(dat$EmploymentType), 
+          xlab = "Employment Type", ylab = "Mental Health Disorder",
           col = palette("Tableau"))
 ```
 
 2. JobScope vs. CurrentlyMentalHealthDisorder
 
 ```{r, echo = F}
-spineplot(factor(dat$JobScope)~factor(dat$CurrentlyMentalHealthDisorder), 
-          xlab = "CurrentlyMentalHealthDisorder", ylab = "JobScope",
+spineplot(factor(dat$CurrentlyMentalHealthDisorder) ~ factor(dat$JobScope), 
+          ylab = "CurrentlyMentalHealthDisorder", xlab = "JobScope",
+          col = palette("Tableau"))
+```
+```{r}
+spineplot(factor(dat$CurrentlyMentalHealthDisorder)~factor(dat$JobScope),
+          xlab = "Job Scope", ylab = "Mental Health Disorder",
           col = palette("Tableau"))
 ```
 
 3. FamilyHistory vs. CurrentlyMentalHealthDisorder
 
 ```{r, echo = F}
-spineplot(factor(dat$FamilyHistory)~factor(dat$CurrentlyMentalHealthDisorder), 
-          xlab = "CurrentlyMentalHealthDisorder", ylab = "FamilyHistory",
+spineplot(factor(dat$CurrentlyMentalHealthDisorder) ~ factor(dat$FamilyHistory), 
+          xlab = "FamilyHistory", ylab = "CurrentlyMentalHealthDisorder", 
+          col = palette("Tableau"))
+```
+```{r}
+spineplot(factor(dat$CurrentlyMentalHealthDisorder)~factor(dat$FamilyHistory), 
+          xlab = "Family History", ylab = "Mental Health Disorder",
           col = palette("Tableau"))
 ```
 
 4. Gender vs. CurrentlyMentalHealthDisorder
 
 ```{r, echo = F}
-spineplot(factor(dat$Gender)~factor(dat$CurrentlyMentalHealthDisorder), 
-          xlab = "CurrentlyMentalHealthDisorder", ylab = "Gender",
+spineplot(factor(dat$CurrentlyMentalHealthDisorder) ~ factor(dat$Gender),
+          xlab = "Gender", ylab = "CurrentlyMentalHealthDisorder", 
+          col = palette("Tableau"))
+```
+```{r}
+spineplot(factor(dat$CurrentlyMentalHealthDisorder)~factor(dat$Gender), 
+          xlab = "Gender", ylab = "Mental Health Disorder",
           col = palette("Tableau"))
 ```
 
 5. CountryLiveIn vs. CurrentlyMentalHealthDisorder
 
-```{r, echo = F}
+```{r}
 ggplot(data = dat) +
-  geom_mosaic(aes(x = product(CountryLiveIn, CurrentlyMentalHealthDisorder),
-                  fill = CountryLiveIn)) + 
-  labs(y = "CountryLiveIn", 
-       title="CountryLiveIn v.s. CurrentlyMentalHealthDisorder") +
+  geom_mosaic(aes(x = product(CurrentlyMentalHealthDisorder, CountryLiveIn),
+                  fill = CurrentlyMentalHealthDisorder)) + 
+  labs(y = "Mental Health Disorder",x ="Country", fill = "Mental Health Disorder") +
   theme(axis.text.y=element_blank(),
         axis.ticks.y=element_blank(),
-        axis.text.x = element_text(angle = 60))
+        axis.text.x = element_text(angle = 60, hjust = 1))
 ```
+
 
 6. CountryWorkIn vs. CurrentlyMentalHealthDisorder
 
-```{r, echo = F}
+```{r}
 ggplot(data = dat) +
-  geom_mosaic(aes(x = product(CountryWorkIn, CurrentlyMentalHealthDisorder),
-                  fill = CountryWorkIn)) + 
-  labs(y = "CountryWorkIn", 
-       title="CountryWorkIn v.s. CurrentlyMentalHealthDisorder") +
+  geom_mosaic(aes(x = product(CurrentlyMentalHealthDisorder, CountryWorkIn),
+                  fill = CurrentlyMentalHealthDisorder)) + 
+  labs(y = "Mental Health Disorder",
+       x = "Country", 
+       fill = "Mental Health Disorder") +
   theme(axis.text.y=element_blank(),
         axis.ticks.y=element_blank(),
-        axis.text.x = element_text(angle = 60))
+        axis.text.x = element_text(angle = 60, hjust = 1))
 ```
 
-7. Age vs. CurrentlyMentalHealthDisorder
-
-```{r, echo = F}
-ggplot(dat, aes(x = CurrentlyMentalHealthDisorder, y = Age)) +
-  geom_boxplot(size = .75) +
-  geom_jitter(alpha = .5) +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1))
+7. AgeGroup vs. CurrentlyMentalHealthDisorder
+```{r}
+ggplot(data = dat) +
+  geom_mosaic(aes(x = product(CurrentlyMentalHealthDisorder, AgeGroup),
+                  fill = CurrentlyMentalHealthDisorder)) + 
+  labs(y = "Mental Health Disorder", x= "Age Group", fill = "Mental Health Disorder") +
+  theme(axis.text.y=element_blank(),
+        axis.ticks.y=element_blank(),
+        axis.text.x = element_text(angle = 60, hjust = 1))
 ```
-
 
 # Approach and Methodology
 
@@ -201,7 +232,10 @@ We build a random forest model to predict ‘Do you currently have a mental heal
 
 ```{r}
 set.seed(5)
-rf1 <- randomForest(CurrentlyMentalHealthDisorder ~ ., 
+dat <- read.csv("eval/DataForModeling8Variables.csv")
+dat$CurrentlyMentalHealthDisorder <- factor(dat$CurrentlyMentalHealthDisorder, levels = c("Yes", "Other"), labels = c("Yes", "Other"))
+
+rf1 <- randomForest(CurrentlyMentalHealthDisorder ~ EmploymentType + JobScope + FamilyHistory + Gender + CountryLiveIn + CountryWorkIn + AgeGroup, 
                    data=dat,
                    na.action = na.omit) 
 print(rf1)
@@ -221,7 +255,7 @@ Then we search for the number of trees grown(ntree).
 The plot below shows the result we tried ntree=2000. We can see that the OOB Error rate converges around when ntree is around 500, the default number.
 
 ```{r}
-rf2 <- randomForest(CurrentlyMentalHealthDisorder ~ ., 
+rf2 <- randomForest(CurrentlyMentalHealthDisorder ~ EmploymentType + JobScope + FamilyHistory + Gender + CountryLiveIn + CountryWorkIn + AgeGroup, 
                      dat, ntree = 2000)
 oob_err_data <- data.frame(
   Trees = rep(1:nrow(rf2$err.rate), 3), 
@@ -235,7 +269,7 @@ ggplot(data = oob_err_data, aes(x = Trees, y= Error)) +
 Finally, we build our random forest model by specify the best value of the arguments.
 
 ```{r}
-rf3 <-  randomForest(CurrentlyMentalHealthDisorder ~ ., 
+rf3 <-  randomForest(CurrentlyMentalHealthDisorder ~ EmploymentType + JobScope + FamilyHistory + Gender + CountryLiveIn + CountryWorkIn + AgeGroup, 
                      data=dat,
                      na.action = na.omit,
                      mtry=2,
@@ -263,12 +297,8 @@ Chi_func <- function(v1, v2){
 # FamilyHistory 
 Chi_func(dat$FamilyHistory, dat$CurrentlyMentalHealthDisorder)
 
-# Age
-var.test(dat$Age ~ dat$CurrentlyMentalHealthDisorder)
-# p-value = 0.1335.
-# Since p-value > 0.05, the variance of Age in two groups are equal.
-# t.test
-t.test(dat$Age ~ dat$CurrentlyMentalHealthDisorder, var.equal = TRUE)
+# AgeGroup
+Chi_func(dat$AgeGroup, dat$CurrentlyMentalHealthDisorder)
 
 # CountryWorkIn
 Chi_func(dat$CountryWorkIn, dat$CurrentlyMentalHealthDisorder)
@@ -278,6 +308,12 @@ Chi_func(dat$CountryLiveIn, dat$CurrentlyMentalHealthDisorder)
 
 # Gender
 Chi_func(dat$Gender, dat$CurrentlyMentalHealthDisorder)
+
+#Employment Type
+Chi_func(dat$EmploymentType, dat$CurrentlyMentalHealthDisorder)
+
+#Jobscope
+Chi_func(dat$JobScope, dat$CurrentlyMentalHealthDisorder)
 ```
 
 ### Question 2: How has the pandemic changed the prevalence of mental health disorders?
